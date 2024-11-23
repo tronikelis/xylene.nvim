@@ -30,7 +30,7 @@ local M = {
             return a.name < b.name
         end,
         skip = function(name, filetype)
-            return name == ".git"
+            return false
         end,
         on_attach = function(renderer) end,
     },
