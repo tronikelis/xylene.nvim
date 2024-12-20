@@ -5,13 +5,12 @@ local XYLENE_FS = "xylene://"
 local M = {
     ---@class xylene.Config
     ---@field indent integer
-    ---
     ---@field keymaps xylene.Config.Keymaps
     ---@field icons xylene.Config.Icons
-    ---
     ---@field sort_names fun(a: xylene.File, b: xylene.File): boolean
     ---@field on_attach fun(renderer: xylene.Renderer)
     ---@field skip fun(name: string, filetype: string): boolean
+    ---@field get_cwd fun(): string
     config = {
         ---@class xylene.Config.Icons
         ---@field files boolean
@@ -35,6 +34,9 @@ local M = {
             return false
         end,
         on_attach = function(renderer) end,
+        get_cwd = function()
+            return vim.fn.getcwd()
+        end,
     },
 }
 
@@ -450,7 +452,7 @@ function M.setup(config)
     vim.api.nvim_create_user_command("Xylene", function(args)
         local filepath = vim.fn.expand("%:p")
 
-        local renderer = upsert_renderer(vim.fn.getcwd())
+        local renderer = upsert_renderer(M.config.get_cwd())
         vim.api.nvim_set_current_buf(renderer.buf)
 
         if args.bang then

@@ -70,6 +70,9 @@ require("xylene").setup({
     return false
   end,
   on_attach = function(renderer) end,
+  get_cwd = function()
+    return vim.fn.getcwd()
+  end,
 })
 ```
 
@@ -79,7 +82,7 @@ require("xylene").setup({
 
 ### User commands
 
-- `Xylene` open a new xylene buffer with `cwd` as the root
+- `Xylene` open a new/previous xylene buffer with `cwd` as the root
 - `Xylene!` same as `Xylene` plus recursively opens directories to make your file seen
 
 ### Recipes
