@@ -1,5 +1,7 @@
 local utils = require("xylene.utils")
 
+local XYLENE_FS = "xylene://"
+
 local M = {
     ---@class xylene.Config
     ---@field indent integer
@@ -245,7 +247,12 @@ function Renderer:new(dir, buf)
         obj:click(row)
     end, { buffer = buf })
 
-    vim.api.nvim_buf_set_name(obj.buf, vim.fs.joinpath("xylene:", obj.wd))
+    vim.api.nvim_buf_set_name(obj.buf, XYLENE_FS .. obj.wd)
+
+    local opts = vim.bo[buf]
+    opts.filetype = "xylene"
+    opts.modified = false
+    opts.modifiable = false
 
     setmetatable(obj, self)
     self.__index = self
@@ -411,6 +418,29 @@ function Renderer:open_from_filepath(filepath, files, line)
     return nil, 0
 end
 
+---@type table<string, xylene.Renderer?>
+local wd_renderers = {}
+
+---@param wd string
+---@param buf integer?
+---@return xylene.Renderer
+local function upsert_renderer(wd, buf)
+    buf = buf or vim.api.nvim_create_buf(false, false)
+
+    local current = wd_renderers[wd]
+    if current and vim.api.nvim_buf_is_valid(current.buf) then
+        return current
+    else
+        wd_renderers[wd] = nil
+    end
+
+    local renderer = Renderer:new(wd, buf)
+    M.config.on_attach(renderer)
+    wd_renderers[wd] = renderer
+
+    return renderer
+end
+
 function M.setup(config)
     config = config or {}
     M.config = vim.tbl_deep_extend("force", M.config, config)
@@ -418,20 +448,10 @@ function M.setup(config)
     vim.api.nvim_set_hl(0, "XyleneDir", { link = "Directory" })
 
     vim.api.nvim_create_user_command("Xylene", function(args)
-        local buf = vim.api.nvim_create_buf(false, false)
-
-        local opts = vim.bo[buf]
-        opts.filetype = "xylene"
-
-        local cwd = vim.uv.cwd()
-        if not cwd then
-            return
-        end
-
         local filepath = vim.fn.expand("%:p")
-        vim.api.nvim_set_current_buf(buf)
 
-        local renderer = Renderer:new(cwd, buf)
+        local renderer = upsert_renderer(vim.fn.getcwd())
+        vim.api.nvim_set_current_buf(renderer.buf)
 
         if args.bang then
             local file, line = renderer:open_from_filepath(filepath)
@@ -446,10 +466,16 @@ function M.setup(config)
         else
             renderer:refresh()
         end
-
-        M.config.on_attach(renderer)
     end, {
         bang = true,
+    })
+
+    vim.api.nvim_create_autocmd("BufNew", {
+        pattern = XYLENE_FS .. "/*",
+        callback = function(ev)
+            local path = ev.file:sub(#XYLENE_FS + 1)
+            upsert_renderer(path, ev.buf):refresh()
+        end,
     })
 end
 
