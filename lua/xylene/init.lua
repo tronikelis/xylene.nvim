@@ -267,7 +267,7 @@ function Renderer:new(dir, buf)
     ---@type xylene.Renderer
     local obj = {
         wd = dir,
-        files = {},
+        files = File.dir_to_files(dir),
         buf = buf,
         ns_id = vim.api.nvim_create_namespace(""),
     }
@@ -284,6 +284,7 @@ function Renderer:new(dir, buf)
     opts.filetype = "xylene"
     opts.modified = false
     opts.modifiable = false
+    opts.undofile = false
 
     return obj
 end
@@ -392,14 +393,16 @@ function Renderer:apply_hl(flattened_files, offset)
 end
 
 function Renderer:refresh()
-    self.files = File.diff(0, self.wd, self.files)
-
     ---@type string[]
     local lines = {}
     ---@type xylene.File[]
     local files = {}
 
     for _, file in ipairs(self.files) do
+        if file.opened then
+            file:open() -- force refresh the file
+        end
+
         for _, l in ipairs(file:flatten_opened()) do
             table.insert(lines, l:line())
             table.insert(files, l)
@@ -429,17 +432,8 @@ function Renderer:open_from_filepath(filepath, files, line)
         end
 
         if utils.string_starts_with(filepath, f.path) then
-            if #f.children == 0 then
-                f:open()
-
-                --- extra if needed for compact open case
-                --- the path could change to the correct one
-                if f.path == filepath then
-                    return f, line
-                end
-            end
-
-            return self:open_from_filepath(filepath, f.children, line)
+            f:open()
+            return self:open_from_filepath(filepath, f:get_compact_children(), line)
         end
 
         line = line + f.opened_count
