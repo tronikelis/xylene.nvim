@@ -201,22 +201,26 @@ end
 function File:flatten_opened(files)
     files = files or {}
 
-    local children = self.children
-    while #children == 1 and self.depth == children[1].depth do
-        children = children[1].children
-    end
-
     table.insert(files, self)
 
     if self.type == "directory" and not self.opened then
         return files
     end
 
-    for _, f in ipairs(children) do
+    for _, f in ipairs(self:get_compact_children()) do
         f:flatten_opened(files)
     end
 
     return files
+end
+
+---@return xylene.File[]
+function File:get_compact_children()
+    local children = self.children
+    while #children == 1 and children[1].type == "directory" do
+        children = children[1].children
+    end
+    return children
 end
 
 function File:line()
@@ -348,7 +352,7 @@ function Renderer:find_file(line, line_needle, files)
         line_needle = line_needle - 1
 
         if line_needle <= f.opened_count then
-            return self:find_file(line, line_needle, f.children)
+            return self:find_file(line, line_needle, f:get_compact_children())
         end
 
         line_needle = line_needle - f.opened_count
