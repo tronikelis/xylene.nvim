@@ -250,7 +250,7 @@ function File:line()
         str = " " .. str
     end
 
-    return str .. " " .. self.opened_count
+    return str
 end
 
 ---@class xylene.Renderer
@@ -267,7 +267,7 @@ function Renderer:new(dir, buf)
     ---@type xylene.Renderer
     local obj = {
         wd = dir,
-        files = File.dir_to_files(dir),
+        files = {},
         buf = buf,
         ns_id = vim.api.nvim_create_namespace(""),
     }
@@ -455,6 +455,10 @@ local wd_renderers = {}
 ---@param buf integer?
 ---@return xylene.Renderer
 local function upsert_renderer(wd, buf)
+    if wd:sub(-1, -1) == "/" then -- rm trailing /
+        wd = wd:sub(1, -2)
+    end
+
     local current = wd_renderers[wd]
     if current and vim.api.nvim_buf_is_valid(current.buf) then
         return current
