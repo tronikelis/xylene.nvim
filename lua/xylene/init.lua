@@ -100,7 +100,7 @@ function File.dir_to_files(dir)
 end
 
 ---@param children xylene.File[]
-function File:set_children(children)
+function File:set_opened_children(children)
     self.children = children
     self.opened_count = #self.children
 
@@ -138,7 +138,7 @@ function File.diff(depth, dir, files)
         latest[i].depth = depth
 
         if latest[i].opened then
-            latest[i]:set_children(File.diff(depth + 1, latest[i].path, latest[i].children))
+            latest[i]:set_opened_children(File.diff(depth + 1, latest[i].path, latest[i].children))
         end
     end
 
@@ -158,7 +158,7 @@ function File:open()
     end
     self.opened = true
 
-    self:set_children(File.diff(self.depth + 1, self.path, self.children))
+    self:set_opened_children(File.diff(self.depth + 1, self.path, self.children))
 
     if #self.children == 1 and self.children[1].type == "directory" then
         self.opened_count = 0
@@ -455,8 +455,6 @@ local wd_renderers = {}
 ---@param buf integer?
 ---@return xylene.Renderer
 local function upsert_renderer(wd, buf)
-    buf = buf or vim.api.nvim_create_buf(false, false)
-
     local current = wd_renderers[wd]
     if current and vim.api.nvim_buf_is_valid(current.buf) then
         return current
@@ -464,7 +462,7 @@ local function upsert_renderer(wd, buf)
         wd_renderers[wd] = nil
     end
 
-    local renderer = Renderer:new(wd, buf)
+    local renderer = Renderer:new(wd, buf or vim.api.nvim_create_buf(false, false))
     M.config.on_attach(renderer)
     wd_renderers[wd] = renderer
 
