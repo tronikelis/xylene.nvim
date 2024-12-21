@@ -70,9 +70,7 @@ function File.dir_to_files(dir)
 
             if package.loaded["nvim-web-devicons"] and M.config.icons.files then
                 local icons = require("nvim-web-devicons")
-
-                local ext = utils.file_extension(name)
-                icon, icon_hl = icons.get_icon(name, ext, { default = true })
+                icon, icon_hl = icons.get_icon(name, nil, { default = true })
             end
 
             table.insert(
@@ -101,59 +99,74 @@ function File.dir_to_files(dir)
     return files
 end
 
----@param obj xylene.File
----@return xylene.File
-function File:new(obj)
-    setmetatable(obj, self)
-    self.__index = self
-    return obj
-end
-
-function File:calc_opened_count()
+---@param children xylene.File[]
+function File:set_children(children)
+    self.children = children
     self.opened_count = #self.children
-    for _, f in ipairs(self.children) do
-        self.opened_count = self.opened_count + f.opened_count
+
+    for _, v in ipairs(self.children) do
+        self.opened_count = self.opened_count + v.opened_count
+
+        v.depth = self.depth + 1
+        v.parent = self
     end
-end
-
-function File:open_compact()
-    local name = self.name
-    local path = self.path
-
-    while #self.children == 1 and self.children[1].type == "directory" do
-        local child = self.children[1]
-
-        name = vim.fs.joinpath(name, child.name)
-        path = child.path
-
-        self.children = File.dir_to_files(child.path)
-    end
-
-    self.name = name
-    self.path = path
-end
-
-function File:open()
-    if self.type ~= "directory" or self.opened then
-        return
-    end
-    self.opened = true
-
-    if #self.children == 0 then
-        self.children = File.dir_to_files(self.path)
-        self:open_compact()
-
-        for _, f in ipairs(self.children) do
-            f.depth = self.depth + 1
-            f.parent = self
-        end
-    end
-
-    self:calc_opened_count()
 
     self:traverse_parent(function(file)
         file.opened_count = file.opened_count + self.opened_count
     end)
+end
+
+--- recursively diffs opened files
+---@param dir string
+---@param depth integer
+---@param files xylene.File[]
+---@return xylene.File[]
+function File.diff(depth, dir, files)
+    local latest = File.dir_to_files(dir)
+    if #latest == 0 then
+        return {}
+    end
+
+    ---@type table<string, xylene.File?>
+    local files_map = {}
+    for _, v in ipairs(files) do
+        files_map[v.path] = v
+    end
+
+    for i in ipairs(latest) do
+        latest[i] = files_map[latest[i].path] or latest[i]
+        latest[i].depth = depth
+
+        if latest[i].opened then
+            latest[i]:set_children(File.diff(depth + 1, latest[i].path, latest[i].children))
+        end
+    end
+
+    return latest
+end
+
+---@param obj xylene.File
+---@return xylene.File
+function File:new(obj)
+    setmetatable(obj, { __index = self })
+    return obj
+end
+
+function File:open()
+    if self.type ~= "directory" then
+        return
+    end
+    self.opened = true
+
+    self:set_children(File.diff(self.depth + 1, self.path, self.children))
+
+    if #self.children == 1 and self.children[1].type == "directory" then
+        self.opened_count = 0
+
+        local child = self.children[1]
+        child.depth = child.depth - 1
+        child:open()
+    end
 end
 
 ---@param fn fun(parent: xylene.File)
@@ -188,13 +201,18 @@ end
 function File:flatten_opened(files)
     files = files or {}
 
+    local children = self.children
+    while #children == 1 and self.depth == children[1].depth do
+        children = children[1].children
+    end
+
     table.insert(files, self)
 
     if self.type == "directory" and not self.opened then
         return files
     end
 
-    for _, f in ipairs(self.children) do
+    for _, f in ipairs(children) do
         f:flatten_opened(files)
     end
 
@@ -214,6 +232,12 @@ function File:line()
         str = str .. "/"
     end
 
+    local children = self.children
+    while #children == 1 and children[1].type == "directory" do
+        str = str .. children[1].name .. "/"
+        children = children[1].children
+    end
+
     if self.icon and self.type ~= "directory" then
         str = self.icon .. " " .. str
     end
@@ -222,7 +246,7 @@ function File:line()
         str = " " .. str
     end
 
-    return str
+    return str .. " " .. self.opened_count
 end
 
 ---@class xylene.Renderer
@@ -243,6 +267,7 @@ function Renderer:new(dir, buf)
         buf = buf,
         ns_id = vim.api.nvim_create_namespace(""),
     }
+    setmetatable(obj, { __index = self })
 
     vim.keymap.set("n", M.config.keymaps.enter, function()
         local row = vim.api.nvim_win_get_cursor(0)[1]
@@ -255,9 +280,6 @@ function Renderer:new(dir, buf)
     opts.filetype = "xylene"
     opts.modified = false
     opts.modifiable = false
-
-    setmetatable(obj, self)
-    self.__index = self
 
     return obj
 end
@@ -366,6 +388,8 @@ function Renderer:apply_hl(flattened_files, offset)
 end
 
 function Renderer:refresh()
+    self.files = File.diff(0, self.wd, self.files)
+
     ---@type string[]
     local lines = {}
     ---@type xylene.File[]
@@ -450,9 +474,13 @@ function M.setup(config)
     vim.api.nvim_set_hl(0, "XyleneDir", { link = "Directory" })
 
     vim.api.nvim_create_user_command("Xylene", function(args)
-        local filepath = vim.fn.expand("%:p")
-
         local renderer = upsert_renderer(M.config.get_cwd())
+        if vim.bo.filetype == "xylene" then
+            renderer:refresh()
+            return
+        end
+
+        local filepath = vim.fn.expand("%:p")
         vim.api.nvim_set_current_buf(renderer.buf)
 
         if args.bang then
