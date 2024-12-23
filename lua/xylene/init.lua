@@ -47,6 +47,7 @@ local M = {
 ---@field opened boolean
 ---@field depth integer
 ---@field opened_count integer
+---@field _prev_opened_count integer
 ---@field icon? string
 ---@field icon_hl? string
 ---@field parent? xylene.File
@@ -79,6 +80,7 @@ function File.dir_to_files(dir)
                     icon = icon,
                     icon_hl = icon_hl,
 
+                    _prev_opened_count = 0,
                     opened_count = 0,
                     depth = 0,
                     name = name,
@@ -99,8 +101,19 @@ function File.dir_to_files(dir)
     return files
 end
 
+---@param fn fun()
+function File:with_opened_count(fn)
+    self:traverse_parent(function(parent)
+        parent.opened_count = parent.opened_count - self.opened_count
+    end)
+    fn()
+    self:traverse_parent(function(parent)
+        parent.opened_count = parent.opened_count + self.opened_count
+    end)
+end
+
 ---@param children xylene.File[]
-function File:set_opened_children(children)
+function File:set_children(children)
     self.children = children
     self.opened_count = #self.children
 
@@ -110,39 +123,25 @@ function File:set_opened_children(children)
         v.depth = self.depth + 1
         v.parent = self
     end
-
-    self:traverse_parent(function(file)
-        file.opened_count = file.opened_count + self.opened_count
-    end)
 end
 
 --- recursively diffs opened files
----@param dir string
----@param depth integer
----@param files xylene.File[]
----@return xylene.File[]
-function File.diff(depth, dir, files)
-    local latest = File.dir_to_files(dir)
-    if #latest == 0 then
-        return {}
-    end
+function File:diff_children()
+    local latest = File.dir_to_files(self.path)
 
     ---@type table<string, xylene.File?>
     local files_map = {}
-    for _, v in ipairs(files) do
+    for _, v in ipairs(self.children) do
         files_map[v.path] = v
     end
 
     for i in ipairs(latest) do
         latest[i] = files_map[latest[i].path] or latest[i]
-        latest[i].depth = depth
-
-        if latest[i].opened then
-            latest[i]:set_opened_children(File.diff(depth + 1, latest[i].path, latest[i].children))
-        end
     end
 
-    return latest
+    self:with_opened_count(function()
+        self:set_children(latest)
+    end)
 end
 
 ---@param obj xylene.File
@@ -152,21 +151,44 @@ function File:new(obj)
     return obj
 end
 
+---@param skipped integer
+---@return integer
+---returns count of skipped directories (compact)
+function File:_open(skipped)
+    self.opened = true
+
+    self:diff_children()
+
+    if #self.children == 1 and self.children[1].type == "directory" then
+        local child = self.children[1]
+        child.depth = child.depth - 1
+        return child:_open(skipped + 1)
+    end
+
+    for _, v in ipairs(self.children) do
+        if v.opened then
+            v:open()
+        end
+    end
+
+    return skipped
+end
+
 function File:open()
     if self.type ~= "directory" then
         return
     end
-    self.opened = true
 
-    self:set_opened_children(File.diff(self.depth + 1, self.path, self.children))
+    self:with_opened_count(function()
+        self.opened_count = self._prev_opened_count
+    end)
 
-    if #self.children == 1 and self.children[1].type == "directory" then
-        self.opened_count = 0
+    local depth = self:_open(0)
+    self._prev_opened_count = self.opened_count
 
-        local child = self.children[1]
-        child.depth = child.depth - 1
-        child:open()
-    end
+    self:with_opened_count(function()
+        self.opened_count = self.opened_count - depth
+    end)
 end
 
 ---@param fn fun(parent: xylene.File)
@@ -179,13 +201,14 @@ function File:traverse_parent(fn)
 end
 
 function File:close()
+    if not self.opened then
+        return
+    end
     self.opened = false
 
-    self:traverse_parent(function(file)
-        file.opened_count = file.opened_count - self.opened_count
+    self:with_opened_count(function()
+        self.opened_count = 0
     end)
-
-    self.opened_count = 0
 end
 
 function File:toggle()
