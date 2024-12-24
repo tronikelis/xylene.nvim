@@ -40,6 +40,7 @@ such as move/copy/rename ... etc
 - [x] `Xylene!` opens xylene with the current file already opened
 - [x] Icons
 - [x] Execute any code with files / directories (for example open currently hovering directory in oil.nvim)
+- [x] Refresh files
 - [ ] Symlink support
 - [ ] Detect external file changes
 
@@ -61,6 +62,7 @@ require("xylene").setup({
   },
   keymaps = {
     enter = "<cr>",
+    enter_recursive = "!",
   },
   indent = 4,
   sort_names = function(a, b)
@@ -79,6 +81,7 @@ require("xylene").setup({
 ### Keymaps
 
 - `<cr>` toggle dir / enter file
+- `!` recursively open directory
 
 ### User commands
 
