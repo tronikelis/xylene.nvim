@@ -29,13 +29,17 @@ function M.setup(c)
     config.config = vim.tbl_deep_extend("force", config.config, c)
 
     vim.api.nvim_create_user_command("Xylene", function(ev)
-        local filepath = vim.fn.expand("%:p:h")
+        local filepath = vim.fn.expand("%:p")
 
         local renderer = xylene()
 
         if ev.bang then
             local file, line = renderer:open_from_filepath(filepath)
-            vim.print({ file = file, line = line })
+            if not file or not line then
+                return
+            end
+
+            vim.api.nvim_win_set_cursor(0, { line, file:_indent_len() })
         end
     end, { bang = true })
 

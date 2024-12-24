@@ -184,10 +184,11 @@ function Renderer:refresh()
 end
 
 ---finds the nearest file to `filepath`
+---returns [file: xylene.File?, line: integer]
 ---@param filepath string
 ---@param files xylene.File?
 ---@param line integer?
----@return xylene.File?, integer
+---@return xylene.File?, integer?
 function Renderer:_find_file_filepath(filepath, files, line)
     line = line or 0
     files = files or self.files
@@ -227,15 +228,38 @@ end
 
 ---returns [file: xylene.File?, line: integer]
 ---@param filepath string
----@return xylene.File?, integer
+---@param file xylene.File
+---@param line integer
+---@return xylene.File?, integer?
+function Renderer:_open_to_filepath(filepath, file, line)
+    if file.path == filepath then
+        return file, line
+    end
+
+    file:open()
+
+    for _, v in ipairs(file:_get_compact_children()) do
+        line = line + 1
+
+        if utils.string_starts_with(filepath, v.path) then
+            return self:_open_to_filepath(filepath, v, line)
+        end
+
+        line = line + v.opened_count
+    end
+end
+
+---returns [file: xylene.File?, line: integer]
+---@param filepath string
+---@return xylene.File?, integer?
 function Renderer:open_from_filepath(filepath)
     local file, line = self:_find_file_filepath(filepath)
-    if not file then
-        return nil, 0
+    if not file or not line then
+        return
     end
 
     self:with_render_file(file, line, function()
-        file:open()
+        file, line = self:_open_to_filepath(filepath, file, line)
     end)
 
     return file, line
