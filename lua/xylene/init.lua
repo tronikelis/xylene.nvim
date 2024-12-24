@@ -23,8 +23,10 @@ local M = {
         },
         ---@class xylene.Config.Keymaps
         ---@field enter string
+        ---@field enter_recursive string
         keymaps = {
             enter = "<cr>",
+            enter_recursive = "!",
         },
         indent = 4,
         sort_names = function(a, b)
@@ -201,7 +203,7 @@ function File:traverse_parent(fn)
 end
 
 function File:close()
-    if not self.opened then
+    if not self.opened or self.type ~= "directory" then
         return
     end
     self.opened = false
@@ -216,6 +218,14 @@ function File:toggle()
         self:close()
     else
         self:open()
+    end
+end
+
+function File:open_recursive()
+    self:open()
+
+    for _, v in ipairs(self.children) do
+        v:open_recursive()
     end
 end
 
@@ -298,7 +308,10 @@ function Renderer:new(dir, buf)
 
     vim.keymap.set("n", M.config.keymaps.enter, function()
         local row = vim.api.nvim_win_get_cursor(0)[1]
-        obj:click(row)
+        obj:enter(row)
+    end, { buffer = buf })
+    vim.keymap.set("n", M.config.keymaps.enter_recursive, function()
+        obj:enter_recursive(vim.api.nvim_win_get_cursor(0)[1])
     end, { buffer = buf })
 
     vim.api.nvim_buf_set_name(obj.buf, XYLENE_FS .. obj.wd)
@@ -349,14 +362,6 @@ function Renderer:render_file(file, pre_from, pre_to)
     end)
 end
 
----@param file xylene.File
----@param row integer
-function Renderer:toggle_and_render(file, row)
-    local from, to = self:pre_render_file(file, row)
-    file:toggle()
-    self:render_file(file, from, to)
-end
-
 ---@param line integer
 ---@param line_needle? integer
 ---@param files? xylene.File[]
@@ -383,8 +388,34 @@ function Renderer:find_file(line, line_needle, files)
     end
 end
 
+---@param file xylene.File
+---@param line integer
+---@param fn fun()
+function Renderer:with_render_file(file, line, fn)
+    local from, to = self:pre_render_file(file, line)
+    fn()
+    self:render_file(file, from, to)
+end
+
 ---@param row integer
-function Renderer:click(row)
+function Renderer:enter_recursive(row)
+    local file = self:find_file(row)
+    if not file then
+        return
+    end
+
+    if file.type == "file" then
+        self:enter(row)
+        return
+    end
+
+    self:with_render_file(file, row, function()
+        file:open_recursive()
+    end)
+end
+
+---@param row integer
+function Renderer:enter(row)
     local file = self:find_file(row)
     if not file then
         return
@@ -395,7 +426,9 @@ function Renderer:click(row)
         return
     end
 
-    self:toggle_and_render(file, row)
+    self:with_render_file(file, row, function()
+        file:toggle()
+    end)
 end
 
 ---@param flattened_files xylene.File[]
