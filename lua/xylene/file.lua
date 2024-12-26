@@ -14,7 +14,7 @@ local config = require("xylene.config")
 ---@field children xylene.File[]
 local File = {}
 
-function File:_indent_len()
+function File:indent_len()
     return self.depth * config.config.indent
 end
 
@@ -178,15 +178,15 @@ function File:toggle()
     end
 end
 
-function File:open_recursive()
+function File:open_all()
     self:open()
 
     for _, v in ipairs(self.children) do
-        v:open_recursive()
+        v:open_all()
     end
 end
 
-function File:close_recursive()
+function File:close_all()
     if self.type ~= "directory" then
         return
     end
@@ -195,11 +195,11 @@ function File:close_recursive()
     self:close()
 end
 
-function File:toggle_recursive()
+function File:toggle_all()
     if self.opened then
-        self:close_recursive()
+        self:close_all()
     else
-        self:open_recursive()
+        self:open_all()
     end
 end
 
@@ -253,7 +253,7 @@ function File:_line()
         str = self.icon .. " " .. str
     end
 
-    for _ = 0, self:_indent_len() - 1 do
+    for _ = 0, self:indent_len() - 1 do
         str = " " .. str
     end
 

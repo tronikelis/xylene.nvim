@@ -9,7 +9,6 @@ local File = require("xylene.file")
 local Renderer = {}
 
 Renderer.XYLENE_FS = "xylene://"
-Renderer.OPT_KEY = "_xylene_renderer"
 
 ---@param dir string
 ---@param buf integer
@@ -31,8 +30,6 @@ function Renderer:new(dir, buf)
     opts.modified = false
     opts.modifiable = false
     opts.undofile = false
-
-    vim.b[Renderer.XYLENE_FS] = obj
 
     return obj
 end
@@ -78,7 +75,7 @@ end
 ---@param line_needle? integer
 ---@param files? xylene.File[]
 ---@return xylene.File?
-function Renderer:_find_file_line(line, line_needle, files)
+function Renderer:find_file_line(line, line_needle, files)
     files = files or self.files
     line_needle = line_needle or line
 
@@ -93,7 +90,7 @@ function Renderer:_find_file_line(line, line_needle, files)
         line_needle = line_needle - 1
 
         if line_needle <= f.opened_count then
-            return self:_find_file_line(line, line_needle, f:_get_compact_children())
+            return self:find_file_line(line, line_needle, f:_get_compact_children())
         end
 
         line_needle = line_needle - f.opened_count
@@ -110,25 +107,25 @@ function Renderer:with_render_file(file, line, fn)
 end
 
 ---@param line integer
-function Renderer:enter_recursive(line)
-    local file = self:_find_file_line(line)
+function Renderer:toggle_all(line)
+    local file = self:find_file_line(line)
     if not file then
         return
     end
 
     if file.type == "file" then
-        self:enter(line)
+        self:toggle(line)
         return
     end
 
     self:with_render_file(file, line, function()
-        file:open_recursive()
+        file:open_all()
     end)
 end
 
 ---@param line integer
-function Renderer:enter(line)
-    local file = self:_find_file_line(line)
+function Renderer:toggle(line)
+    local file = self:find_file_line(line)
     if not file then
         return
     end
@@ -153,7 +150,7 @@ function Renderer:_apply_hl(flattened_files, offset)
             vim.api.nvim_buf_add_highlight(self.buf, self.ns_id, "XyleneDir", line, 0, -1)
         else
             if f.icon and f.icon_hl then
-                local start = f:_indent_len()
+                local start = f:indent_len()
                 vim.api.nvim_buf_add_highlight(self.buf, self.ns_id, f.icon_hl, line, start, start + 1)
             end
         end
@@ -189,7 +186,7 @@ end
 ---@param files xylene.File?
 ---@param line integer?
 ---@return xylene.File?, integer?
-function Renderer:_find_file_filepath(filepath, files, line)
+function Renderer:find_file_filepath(filepath, files, line)
     line = line or 0
     files = files or self.files
 
@@ -211,7 +208,7 @@ function Renderer:_find_file_filepath(filepath, files, line)
                 end)
                 :totable()
 
-            local res = self:_find_file_filepath(filepath, children, line)
+            local res = self:find_file_filepath(filepath, children, line)
 
             if res then
                 return res, line
@@ -253,7 +250,7 @@ end
 ---@param filepath string
 ---@return xylene.File?, integer?
 function Renderer:open_from_filepath(filepath)
-    local file, line = self:_find_file_filepath(filepath)
+    local file, line = self:find_file_filepath(filepath)
     if not file or not line then
         return
     end
