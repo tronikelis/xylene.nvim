@@ -11,15 +11,11 @@ Semi WIP file tree plugin inspired by oil.nvim and carbon.nvim
   - [Philosophy](#philosophy)
   - [Features](#features)
   - [Usage](#usage)
-    - [Keymaps](#keymaps)
     - [User commands](#user-commands)
     - [Recipes](#recipes)
       - [Open currently hovering dir with oil.nvim](#open-currently-hovering-dir-with-oilnvim)
       - [Search and open directory with telescope](#search-and-open-directory-with-telescope)
   - [API](#api)
-    - [xylene.File](#xylenefile)
-    - [xylene.Renderer](#xylenerenderer)
-    - [xylene.Config](#xyleneconfig)
 <!--toc:end-->
 
 ## Philosophy
@@ -60,10 +56,6 @@ require("xylene").setup({
     dir_open = "  ",
     dir_close = "  ",
   },
-  keymaps = {
-    enter = "<cr>",
-    enter_recursive = "!",
-  },
   indent = 4,
   sort_names = function(a, b)
     return a.name < b.name
@@ -75,17 +67,36 @@ require("xylene").setup({
   get_cwd = function()
     return vim.fn.getcwd()
   end,
+  get_current_file_dir = function()
+    return vim.fn.expand("%:p")
+  end,
 })
 ```
 
-### Keymaps
+### Quick start
 
-- `<cr>` toggle dir / enter file
-- `!` recursively open directory
+Here setting up simple keymaps
+
+- `<cr>` toggle current file
+- `!` toggle current file recursive
+
+```lua
+require("xylene").setup({
+  on_attach = function(renderer)
+    vim.keymap.set("n", "<cr>", function()
+      renderer:toggle(vim.api.nvim_win_get_cursor(0)[1])
+    end, { buffer = renderer.buf })
+
+    vim.keymap.set("n", "!", function()
+      renderer:toggle_all(vim.api.nvim_win_get_cursor(0)[1])
+    end, { buffer = renderer.buf })
+  end
+})
+```
 
 ### User commands
 
-- `Xylene` open a new/previous xylene buffer with `cwd` as the root
+- `Xylene` open a new/previous xylene buffer with `cwd` as the root & refresh the files
 - `Xylene!` same as `Xylene` plus recursively opens directories to make your file seen
 
 ### Recipes
@@ -110,7 +121,7 @@ require("xylene").setup({
     vim.keymap.set("n", "<c-cr>", function()
       local row = vim.api.nvim_win_get_cursor(0)[1]
 
-      local file = renderer:find_file(row)
+      local file = renderer:find_file_line(row)
       if not file then
         return
       end
@@ -134,8 +145,6 @@ https://github.com/user-attachments/assets/d96fbe8f-625a-4105-bf0a-022e307e8acd
 
 </details>
 
-Right now a bit too much low level for my likings, I'll probably make this more concise in the future
-with new apis
 
 ```lua
 require("xylene").setup({
@@ -158,31 +167,7 @@ require("xylene").setup({
               path = path:sub(1, -2)
             end
 
-            local utils = require("xylene.utils")
-
-            --- find the file that will be rendered
-            --- in this case the root file
-            local root, root_row = nil, 0
-            for _, f in ipairs(renderer.files) do
-              root_row = root_row + 1
-
-              if utils.string_starts_with(path, f.path) then
-                root = f
-                break
-              end
-
-              root_row = root_row + f.opened_count
-            end
-
-            local pre_from, pre_to = renderer:pre_render_file(root, root_row)
-
             local file, line = renderer:open_from_filepath(path)
-            if not file then
-              return
-            end
-
-            file:open()
-            renderer:render_file(root, pre_from, pre_to)
 
             vim.api.nvim_win_set_cursor(0, { line, file:indent_len() })
           end)
@@ -191,21 +176,64 @@ require("xylene").setup({
         end,
       })
     end, { buffer = renderer.buf })
-
   end
 })
 ```
 
+
 ## API
 
-### xylene.File
+Main
 
-todo
+```lua
+local xylene = require("xylene")
 
-### xylene.Renderer
+xylene.setup()
+-- get renderer from buffer
+local renderer = xylene.renderer(buf)
+```
 
-todo
+Renderer
 
-### xylene.Config
+```lua
+local renderer = require("xylene.renderer")
 
-todo
+local buf = renderer.buf
+local wd = renderer.wd
+
+-- opens the file at `filepath` and returns the found file, line it's on
+local file, line = renderer:open_from_filepath(filepath)
+
+-- toggles the directory at `line`
+renderer:toggle(line)
+renderer:toggle_all(line) -- recursive variant
+
+-- expensive!, refreshes all opened directories / files
+renderer:refresh()
+
+-- renders the `file` passed in
+renderer:with_render_file(file, line, function()
+  -- change `file` here, e.g. `file:toggle()`
+end)
+
+-- finds the file at `line`
+local file = renderer:find_file_line(line)
+-- finds the closest opened file from `filepath`
+local file, line = renderer:find_file_filepath(filepath)
+```
+
+File
+
+```lua
+local file = require("xylene.file")
+
+file:open()
+file:open_all()
+file:close()
+file:close_all()
+
+file:toggle()
+file:toggle_all()
+
+file:indent_len()
+```
