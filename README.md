@@ -11,6 +11,7 @@ Semi WIP file tree plugin inspired by oil.nvim and carbon.nvim
   - [Philosophy](#philosophy)
   - [Features](#features)
   - [Usage](#usage)
+    - [Quick start](#quick-start)
     - [User commands](#user-commands)
     - [Recipes](#recipes)
       - [Open currently hovering dir with oil.nvim](#open-currently-hovering-dir-with-oilnvim)
