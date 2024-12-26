@@ -73,6 +73,27 @@ require("xylene").setup({
 })
 ```
 
+### Quick start
+
+Here setting up simple keymaps
+
+- `<cr>` toggle current file
+- `!` toggle current file recursive
+
+```lua
+require("xylene").setup({
+  on_attach = function(renderer)
+    vim.keymap.set("n", "<cr>", function()
+      renderer:toggle(vim.api.nvim_win_get_cursor(0)[1])
+    end, { buffer = renderer.buf })
+
+    vim.keymap.set("n", "!", function()
+      renderer:toggle_all(vim.api.nvim_win_get_cursor(0)[1])
+    end, { buffer = renderer.buf })
+  end
+})
+```
+
 ### User commands
 
 - `Xylene` open a new/previous xylene buffer with `cwd` as the root & refresh the files
@@ -176,6 +197,9 @@ Renderer
 
 ```lua
 local renderer = require("xylene.renderer")
+
+local buf = renderer.buf
+local wd = renderer.wd
 
 -- opens the file at `filepath` and returns the found file, line it's on
 local file, line = renderer:open_from_filepath(filepath)

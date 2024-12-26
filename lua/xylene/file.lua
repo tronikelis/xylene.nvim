@@ -74,15 +74,17 @@ end
 
 ---@param children xylene.File[]
 function File:_set_children(children)
-    self.children = children
-    self.opened_count = #self.children
+    self:_with_opened_count(function()
+        self.children = children
+        self.opened_count = #self.children
 
-    for _, v in ipairs(self.children) do
-        self.opened_count = self.opened_count + v.opened_count
+        for _, v in ipairs(self.children) do
+            self.opened_count = self.opened_count + v.opened_count
 
-        v.depth = self.depth + 1
-        v.parent = self
-    end
+            v.depth = self.depth + 1
+            v.parent = self
+        end
+    end)
 end
 
 --- recursively diffs opened files
@@ -99,9 +101,7 @@ function File:_diff_children()
         latest[i] = files_map[latest[i].path] or latest[i]
     end
 
-    self:_with_opened_count(function()
-        self:_set_children(latest)
-    end)
+    self:_set_children(latest)
 end
 
 ---@param obj xylene.File
@@ -160,7 +160,7 @@ function File:_traverse_parent(fn)
 end
 
 function File:close()
-    if not self.opened or self.type ~= "directory" then
+    if self.type ~= "directory" then
         return
     end
     self.opened = false
@@ -191,7 +191,7 @@ function File:close_all()
         return
     end
 
-    self:_set_children(File.dir_to_files(self.path))
+    self:_set_children({})
     self:close()
 end
 

@@ -119,7 +119,7 @@ function Renderer:toggle_all(line)
     end
 
     self:with_render_file(file, line, function()
-        file:open_all()
+        file:toggle_all()
     end)
 end
 
