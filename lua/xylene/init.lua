@@ -18,11 +18,10 @@ local function attach_renderer(wd, buf)
     local from_filepath = vim.b[buf][OPT_FROM_FILEPATH]
     if from_filepath then
         local file, line = renderer:open_from_filepath(from_filepath)
-        if not file or not line then
-            return
-        end
 
-        vim.api.nvim_win_set_cursor(0, { line, file:indent_len() })
+        if file and line then
+            vim.api.nvim_win_set_cursor(0, { line, file:indent_len() })
+        end
     end
 
     config.config.on_attach(renderer)
