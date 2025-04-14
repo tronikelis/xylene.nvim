@@ -244,6 +244,8 @@ function Renderer:_open_to_filepath(filepath, file, line)
 
         line = line + v.opened_count
     end
+
+    return file, line
 end
 
 ---returns [file: xylene.File?, line: integer]
