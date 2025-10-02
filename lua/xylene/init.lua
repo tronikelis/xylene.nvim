@@ -38,6 +38,8 @@ end
 function M.setup(c)
     vim.api.nvim_set_hl(0, "XyleneDir", { link = "Directory", default = true })
 
+    local augroup = vim.api.nvim_create_augroup("xylene.nvim/setup", {})
+
     config.config = vim.tbl_deep_extend("force", config.config, c)
 
     vim.api.nvim_create_user_command("Xylene", function(ev)
@@ -56,6 +58,7 @@ function M.setup(c)
     end, { bang = true })
 
     vim.api.nvim_create_autocmd("BufNew", {
+        group = augroup,
         pattern = Renderer.XYLENE_FS .. "/*",
         callback = vim.schedule_wrap(function(ev)
             local path = ev.file:sub(#Renderer.XYLENE_FS + 1)
