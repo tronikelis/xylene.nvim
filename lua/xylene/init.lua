@@ -9,6 +9,16 @@ _G.__xylene_renderer_buf_map = _G.__xylene_renderer_buf_map or {}
 ---@type table<integer, xylene.Renderer?>
 local renderer_buf_map = _G.__xylene_renderer_buf_map
 
+---@param renderer xylene.Renderer
+---@param filepath string
+local function open_from_filepath(renderer, filepath)
+    local file, line = renderer:open_from_filepath(filepath)
+
+    if file and line then
+        vim.api.nvim_win_set_cursor(0, { line, file:indent_len() })
+    end
+end
+
 ---@param buf integer
 ---@param wd string
 local function attach_renderer(wd, buf)
@@ -26,11 +36,7 @@ local function attach_renderer(wd, buf)
 
     local from_filepath = vim.b[buf][OPT_FROM_FILEPATH]
     if from_filepath then
-        local file, line = renderer:open_from_filepath(from_filepath)
-
-        if file and line then
-            vim.api.nvim_win_set_cursor(0, { line, file:indent_len() })
-        end
+        open_from_filepath(renderer, from_filepath)
     end
 
     config.config.on_attach(renderer)
@@ -51,7 +57,7 @@ function M.setup(c)
 
     vim.api.nvim_create_user_command("Xylene", function(ev)
         if vim.bo.filetype == "xylene" then
-            get_renderer():refresh()
+            assert(get_renderer()):refresh()
             return
         end
 
@@ -60,6 +66,10 @@ function M.setup(c)
         vim.cmd.e(Renderer.XYLENE_FS .. config.config.get_cwd())
 
         if ev.bang then
+            local renderer = get_renderer()
+            if renderer then
+                open_from_filepath(renderer, from_filepath)
+            end
             vim.b[0][OPT_FROM_FILEPATH] = from_filepath
         end
     end, { bang = true })

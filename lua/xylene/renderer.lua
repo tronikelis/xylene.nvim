@@ -30,6 +30,7 @@ function Renderer:new(dir, buf)
     opts.modified = false
     opts.modifiable = false
     opts.undofile = false
+    opts.swapfile = false
 
     return obj
 end
