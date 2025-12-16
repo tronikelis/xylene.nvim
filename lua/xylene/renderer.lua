@@ -1,9 +1,10 @@
 local utils = require("xylene.utils")
 local File = require("xylene.file")
 
+local NS_ID = vim.api.nvim_create_namespace("xylene.nvim/hl")
+
 ---@class xylene.Renderer
 ---@field buf integer
----@field ns_id integer
 ---@field wd string
 ---@field files xylene.File[]
 local Renderer = {}
@@ -19,7 +20,6 @@ function Renderer:new(dir, buf)
         wd = dir,
         files = File.dir_to_files(dir),
         buf = buf,
-        ns_id = vim.api.nvim_create_namespace(""),
     }
     setmetatable(obj, { __index = self })
 
@@ -147,11 +147,11 @@ function Renderer:_apply_hl(flattened_files, offset)
         local line = offset + i - 1
 
         if f.type == "directory" then
-            vim.api.nvim_buf_add_highlight(self.buf, self.ns_id, "XyleneDir", line, 0, -1)
+            vim.api.nvim_buf_add_highlight(self.buf, NS_ID, "XyleneDir", line, 0, -1)
         else
             if f.icon and f.icon_hl then
                 local start = f:indent_len()
-                vim.api.nvim_buf_add_highlight(self.buf, self.ns_id, f.icon_hl, line, start, start + 1)
+                vim.api.nvim_buf_add_highlight(self.buf, NS_ID, f.icon_hl, line, start, start + 1)
             end
         end
     end
