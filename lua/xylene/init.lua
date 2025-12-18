@@ -26,7 +26,7 @@ local function attach_renderer(wd, buf)
     renderer:refresh()
 
     renderer_buf_map[buf] = renderer
-    vim.api.nvim_create_autocmd("BufDelete", {
+    vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
         once = true,
         buffer = buf,
         callback = function()
