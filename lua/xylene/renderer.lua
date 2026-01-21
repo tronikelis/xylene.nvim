@@ -209,10 +209,9 @@ function Renderer:find_file_filepath(filepath, files, line)
                 end)
                 :totable()
 
-            local res = self:find_file_filepath(filepath, children, line)
-
-            if res then
-                return res, line
+            local file_next, line_next = self:find_file_filepath(filepath, children, line)
+            if file_next then
+                return file_next, line_next
             end
 
             break
