@@ -12,6 +12,7 @@ local renderer_buf_map = _G.__xylene_renderer_buf_map
 ---@param renderer xylene.Renderer
 ---@param filepath string
 local function open_from_filepath(renderer, filepath)
+    renderer:refresh()
     local file, line = renderer:open_from_filepath(filepath)
 
     if file and line then

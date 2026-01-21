@@ -158,7 +158,23 @@ function Renderer:_apply_hl(flattened_files, offset)
     end
 end
 
+function Renderer:_diff_files()
+    local files_map = {}
+    for _, v in ipairs(self.files) do
+        files_map[v.path] = v
+    end
+
+    local latest = File.dir_to_files(self.wd)
+    for i in ipairs(latest) do
+        latest[i] = files_map[latest[i].path] or latest[i]
+    end
+
+    self.files = latest
+end
+
 function Renderer:refresh()
+    self:_diff_files()
+
     ---@type string[]
     local lines = {}
     ---@type xylene.File[]
