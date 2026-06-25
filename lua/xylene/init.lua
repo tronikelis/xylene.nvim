@@ -48,8 +48,9 @@ local function get_renderer()
     return renderer_buf_map[vim.api.nvim_get_current_buf()]
 end
 
----@param c xylene.Config
+---@param c table?
 function M.setup(c)
+    c = c or {}
     vim.api.nvim_set_hl(0, "XyleneDir", { link = "Directory", default = true })
 
     local augroup = vim.api.nvim_create_augroup("xylene.nvim/setup", {})
